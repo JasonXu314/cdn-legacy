@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { MongoClient, ObjectId, WithId } from 'mongodb';
 import { DBFile } from './file.model';
 
@@ -15,7 +15,7 @@ export class DBService {
 	}
 
 	public async storeFile(data: DBFile): Promise<ObjectId> {
-		return (await (await this._db).db('main').collection<DBFile>('files').insertOne(data)).insertedId;
+		return (await (await this._db).db(this._getDB()).collection<DBFile>('files').insertOne(data)).insertedId;
 	}
 
 	public async updateFile(id: string, data: Partial<DBFile>): Promise<WithId<DBFile> | null> {
@@ -23,7 +23,7 @@ export class DBService {
 			await (
 				await this._db
 			)
-				.db('main')
+				.db(this._getDB())
 				.collection<DBFile>('files')
 				.findOneAndUpdate({ _id: ObjectId.createFromHexString(id) }, { $set: data })
 		).value;
@@ -31,9 +31,22 @@ export class DBService {
 
 	public async getMetadata(id: string): Promise<DBFile | null> {
 		return (await this._db)
-			.db('main')
+			.db(this._getDB())
 			.collection<DBFile>('files')
 			.findOne({ _id: ObjectId.createFromHexString(id) });
+	}
+
+	private _getDB(): string {
+		switch (process.env.STAGE) {
+			case 'test':
+				return 'staging';
+			case 'local':
+			case 'live':
+				return 'main';
+			default:
+				this._logger.log(`Unrecognized staging environment ${process.env.STAGE}`);
+				throw new InternalServerErrorException(`Unrecognized staging environment ${process.env.STAGE}`);
+		}
 	}
 }
 
