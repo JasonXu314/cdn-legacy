@@ -134,7 +134,7 @@ export class AppController {
 			'Content-Disposition': `attachment; filename="${newFile.name}"`
 		});
 
-		return new StreamableFile(file.stream);
+		return new StreamableFile(newFile.stream);
 	}
 }
 

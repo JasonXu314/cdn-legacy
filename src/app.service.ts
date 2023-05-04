@@ -65,13 +65,21 @@ export class AppService {
 				throw new InternalServerErrorException('Unable to update file metadata');
 			}
 
+			if (metadata.ext !== newMetadata.ext) {
+				this.fs.deleteFile(`${id}.${metadata.ext}`);
+			}
+
 			const fileName = `${id}.${newMetadata.ext}`;
 
 			this.fs.writeFile(`assets/${fileName}`, file.buffer);
 			const stream = this.fs.readFileAsStream(`assets/${fileName}`);
 
 			return { ...newMetadata, stream };
-		} catch (err) {
+		} catch (err: unknown) {
+			if (err instanceof NotFoundException) {
+				throw err;
+			}
+
 			this._logger.error(err);
 			throw new InternalServerErrorException(`Failed to read file ${id}: ${err}`);
 		}

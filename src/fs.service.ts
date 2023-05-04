@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ReadStream, createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'fs';
+import { ReadStream, createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'fs';
 
 @Injectable()
 export class FSService {
@@ -65,6 +65,16 @@ export class FSService {
 		} catch (err) {
 			this._logger.log(err);
 			throw new Error('Unable to create read stream');
+		}
+	}
+
+	public deleteFile(path: string): boolean {
+		try {
+			rmSync(path);
+			return true;
+		} catch (err) {
+			this._logger.error(err);
+			return false;
 		}
 	}
 
