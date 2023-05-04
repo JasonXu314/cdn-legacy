@@ -51,6 +51,30 @@ export class AppService {
 		}
 	}
 
+	public async updateFile(id: string, file: Express.Multer.File): Promise<ApplicationFile> {
+		try {
+			const metadata = await this.db.getMetadata(id);
+
+			if (!metadata) {
+				throw new NotFoundException(`File with id ${id} not found`);
+			}
+
+			const newMetadata = await this.db.updateFile(id, { name: file.originalname, type: file.mimetype, ext: this.fs.getExtension(file.originalname) });
+
+			if (!newMetadata) {
+				throw new InternalServerErrorException('Unable to update file metadata');
+			}
+
+			const fileName = `${id}.${newMetadata.ext}`;
+			const stream = this.fs.readFileAsStream(`assets/${fileName}`);
+
+			return { ...newMetadata, stream };
+		} catch (err) {
+			this._logger.error(err);
+			throw new InternalServerErrorException(`Failed to read file ${id}: ${err}`);
+		}
+	}
+
 	public async export(): Promise<StreamableFile> {
 		try {
 			const files = this.fs.readDir('assets');
