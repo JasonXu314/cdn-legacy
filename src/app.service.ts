@@ -66,6 +66,8 @@ export class AppService {
 			}
 
 			const fileName = `${id}.${newMetadata.ext}`;
+
+			this.fs.writeFile(`assets/${fileName}`, file.buffer);
 			const stream = this.fs.readFileAsStream(`assets/${fileName}`);
 
 			return { ...newMetadata, stream };
