@@ -1,27 +1,22 @@
-import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException, StreamableFile } from '@nestjs/common';
-import * as JSZip from 'jszip';
+import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { ObjectId } from 'mongodb';
 import { DBService } from './db.service';
 import { ApplicationFile } from './file.model';
-import { FSService } from './fs.service';
+import { FilesService } from './files.service';
+import { getExtension } from './utils';
 
 @Injectable()
 export class AppService {
 	private _logger: Logger = new Logger('CDN Service');
 
-	constructor(private fs: FSService, private db: DBService) {
-		fs.ensureDir('assets');
-	}
+	constructor(private fs: FilesService, private db: DBService) {}
 
 	public async createFile(file: Express.Multer.File): Promise<ObjectId> {
 		try {
-			const id = await this.db.storeFile({ name: file.originalname, type: file.mimetype, ext: this.fs.getExtension(file.originalname) });
+			const id = await this.db.storeFile({ name: file.originalname, type: file.mimetype, ext: getExtension(file.originalname) });
+			await this.fs.createFile(id.toString('hex'), file.buffer);
 
-			if (this.fs.writeFile(`assets/${id}.${this.fs.getExtension(file.originalname)}`, file)) {
-				return id;
-			} else {
-				throw new InternalServerErrorException('Unable to save file');
-			}
+			return id;
 		} catch (err) {
 			this._logger.error(err);
 			throw new InternalServerErrorException('Unable to save file');
@@ -36,15 +31,9 @@ export class AppService {
 				throw new NotFoundException(`File with id ${id} not found`);
 			}
 
-			const fileName = `${id}.${metadata.ext}`;
+			const content = await this.fs.getFileById(id);
 
-			if (!this.fs.isFile(`assets/${fileName}`)) {
-				throw new InternalServerErrorException(`File with id ${id} found in DB, but not present on disk`);
-			}
-
-			const stream = this.fs.readFileAsStream(`assets/${fileName}`);
-
-			return { ...metadata, stream };
+			return { ...metadata, content };
 		} catch (err) {
 			this._logger.error(err);
 			throw new InternalServerErrorException(`Failed to read file ${id}: ${err}`);
@@ -59,22 +48,15 @@ export class AppService {
 				throw new NotFoundException(`File with id ${id} not found`);
 			}
 
-			const newMetadata = await this.db.updateFile(id, { name: file.originalname, type: file.mimetype, ext: this.fs.getExtension(file.originalname) });
+			const newMetadata = await this.db.updateFile(id, { name: file.originalname, type: file.mimetype, ext: getExtension(file.originalname) });
 
 			if (!newMetadata) {
 				throw new InternalServerErrorException('Unable to update file metadata');
 			}
 
-			if (metadata.ext !== newMetadata.ext) {
-				this.fs.deleteFile(`${id}.${metadata.ext}`);
-			}
+			const content = await this.fs.replaceFile(id, file.buffer);
 
-			const fileName = `${id}.${newMetadata.ext}`;
-
-			this.fs.writeFile(`assets/${fileName}`, file.buffer);
-			const stream = this.fs.readFileAsStream(`assets/${fileName}`);
-
-			return { ...newMetadata, stream };
+			return { ...newMetadata, content };
 		} catch (err: unknown) {
 			if (err instanceof NotFoundException) {
 				throw err;
@@ -82,43 +64,6 @@ export class AppService {
 
 			this._logger.error(err);
 			throw new InternalServerErrorException(`Failed to read file ${id}: ${err}`);
-		}
-	}
-
-	public async export(): Promise<StreamableFile> {
-		try {
-			const files = this.fs.readDir('assets');
-			const zip = new JSZip();
-
-			files.forEach((file) => {
-				zip.file(file, this.fs.readFile(`assets/${file}`));
-			});
-
-			return new StreamableFile(await zip.generateAsync({ type: 'uint8array' }));
-		} catch (err) {
-			this._logger.error(err);
-			throw new InternalServerErrorException(`Failed to export files: ${err}`);
-		}
-	}
-
-	public async load(file: Express.Multer.File): Promise<string> {
-		try {
-			const zip = await JSZip.loadAsync(file.buffer);
-
-			for (const path in zip.files) {
-				if (!/\w{24}.\w+/.test(path)) {
-					throw new BadRequestException(`Invalid file path in zip: ${path}`);
-				}
-
-				const file = zip.files[path];
-
-				this.fs.writeFile(`assets/${path}`, await file.async('nodebuffer'));
-			}
-
-			return 'Success';
-		} catch (err) {
-			this._logger.error(err);
-			return 'Failure';
 		}
 	}
 }

@@ -1,5 +1,3 @@
-import { ReadStream } from 'fs';
-
 export class DBFile {
 	ext: string = undefined as any;
 	type: string = undefined as any;
@@ -7,6 +5,6 @@ export class DBFile {
 }
 
 export class ApplicationFile extends DBFile {
-	stream: ReadStream = undefined as any;
+	content: Buffer = undefined as any;
 }
 
