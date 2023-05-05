@@ -7,3 +7,7 @@ export function getExtension(path: string): string {
 
 	return ext;
 }
+
+export function forceInit<T>(): T {
+	return undefined as T;
+}

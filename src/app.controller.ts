@@ -1,29 +1,43 @@
-import { Controller, Get, NotFoundException, Param, Post, Put, Res, StreamableFile, UploadedFile, UseInterceptors, ValidationPipe } from '@nestjs/common';
+import { Controller, Get, Param, Post, Put, Res, StreamableFile, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import {
+	ApiBody,
+	ApiConsumes,
+	ApiCreatedResponse,
+	ApiInternalServerErrorResponse,
+	ApiNotFoundResponse,
+	ApiOkResponse,
+	ApiParam,
+	ApiProduces,
+	ApiTags
+} from '@nestjs/swagger';
 import { Response } from 'express';
 import { ObjectId } from 'mongodb';
 import { AppService } from './app.service';
+import { FileIDDTO, FileUploadDTO, ISEResponseDTO, NotFoundResponseDTO } from './file.dto';
 
 @Controller()
+@ApiTags('Routes')
 export class AppController {
 	constructor(private readonly appService: AppService) {}
 
 	@Post('/')
 	@UseInterceptors(FileInterceptor('file'))
+	@ApiConsumes('multipart/form-data')
+	@ApiBody({ type: FileUploadDTO, description: 'The file to be uploaded' })
+	@ApiCreatedResponse({ type: String, description: 'A single JSON string containing the ID of the new file.' })
+	@ApiInternalServerErrorResponse({ type: ISEResponseDTO, description: 'An internal server error.' })
 	public async uploadFile(@UploadedFile() file: Express.Multer.File): Promise<ObjectId> {
 		return this.appService.createFile(file);
 	}
 
-	@Get('/favicon.ico')
-	public getFavicon(): never {
-		throw new NotFoundException('No favicon :P');
-	}
-
 	@Get('/:id')
-	public async getFile(
-		@Param('id', new ValidationPipe({ expectedType: String })) id: string,
-		@Res({ passthrough: true }) res: Response
-	): Promise<StreamableFile> {
+	@ApiProduces('application/octet-stream', 'application/json')
+	@ApiParam({ name: 'id', description: 'The ID of the file to be retrieved (returned on file creation)' })
+	@ApiOkResponse({ schema: { type: 'string', format: 'binary' }, description: 'A successful retrieval of the file.' })
+	@ApiNotFoundResponse({ type: NotFoundResponseDTO, description: 'If no file with the requested ID was found on the server.' })
+	@ApiInternalServerErrorResponse({ type: ISEResponseDTO, description: 'An internal server error.' })
+	public async getFile(@Param() { id }: FileIDDTO, @Res({ passthrough: true }) res: Response): Promise<StreamableFile> {
 		const file = await this.appService.getFile(id);
 
 		res.set({
@@ -36,8 +50,16 @@ export class AppController {
 
 	@Put('/:id')
 	@UseInterceptors(FileInterceptor('file'))
+	@ApiProduces('application/octet-stream', 'application/json')
+	@ApiParam({ name: 'id', description: 'The ID of the file to be replaced (returned on file creation)' })
+	@ApiOkResponse({ schema: { type: 'string', format: 'binary' }, description: 'A successful update of the file.' })
+	@ApiNotFoundResponse({
+		type: NotFoundResponseDTO,
+		description: 'If no file with the requested ID was found on the server. This endpoint cannot be used to create files; use POST instead.'
+	})
+	@ApiInternalServerErrorResponse({ type: ISEResponseDTO, description: 'An internal server error.' })
 	public async putFile(
-		@Param('id', new ValidationPipe({ expectedType: String })) id: string,
+		@Param() { id }: FileIDDTO,
 		@UploadedFile() file: Express.Multer.File,
 		@Res({ passthrough: true }) res: Response
 	): Promise<StreamableFile> {

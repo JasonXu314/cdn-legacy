@@ -3,6 +3,7 @@ config();
 
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -10,6 +11,10 @@ async function bootstrap() {
 
 	app.useGlobalPipes(new ValidationPipe());
 	app.enableCors({ origin: true });
+
+	const config = new DocumentBuilder().setTitle('My CDN').setDescription('A persistent CDN for serving raw files').setVersion('1.0').build();
+	const document = SwaggerModule.createDocument(app, config);
+	SwaggerModule.setup('docs', app, document, { customSiteTitle: 'My CDN Docs' });
 
 	await app.listen(process.env.PORT || 5000);
 }

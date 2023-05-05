@@ -1,8 +1,8 @@
 import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { ObjectId } from 'mongodb';
-import { DBService } from './db.service';
-import { ApplicationFile } from './file.model';
-import { FilesService } from './files.service';
+import { DBService } from './data/db.service';
+import { ApplicationFile } from './data/file.model';
+import { FilesService } from './data/files.service';
 import { getExtension } from './utils';
 
 @Injectable()
@@ -34,7 +34,11 @@ export class AppService {
 			const content = await this.fs.getFileById(id);
 
 			return { ...metadata, content };
-		} catch (err) {
+		} catch (err: unknown) {
+			if (err instanceof NotFoundException) {
+				throw err;
+			}
+
 			this._logger.error(err);
 			throw new InternalServerErrorException(`Failed to read file ${id}: ${err}`);
 		}
