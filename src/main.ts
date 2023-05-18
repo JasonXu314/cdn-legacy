@@ -10,7 +10,7 @@ async function bootstrap() {
 	const app = await NestFactory.create(AppModule);
 
 	app.useGlobalPipes(new ValidationPipe());
-	app.enableCors({ origin: true });
+	app.enableCors({ origin: true, exposedHeaders: ['Content-Disposition'] });
 
 	const config = new DocumentBuilder().setTitle('My CDN').setDescription('A persistent CDN for serving raw files').setVersion('1.0').build();
 	const document = SwaggerModule.createDocument(app, config);
