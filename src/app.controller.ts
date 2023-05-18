@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, Put, Res, StreamableFile, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Param, Post, Put, Res, StreamableFile, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
 	ApiBody,
@@ -28,6 +28,10 @@ export class AppController {
 	@ApiCreatedResponse({ type: String, description: 'A single JSON string containing the ID of the new file.' })
 	@ApiInternalServerErrorResponse({ type: ISEResponseDTO, description: 'An internal server error.' })
 	public async uploadFile(@UploadedFile() file: Express.Multer.File): Promise<ObjectId> {
+		if (!file) {
+			throw new BadRequestException('Must have file to upload.');
+		}
+
 		return this.appService.createFile(file);
 	}
 
